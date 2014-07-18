@@ -7,6 +7,7 @@ use Alien::SeleniumRC;
 use Test::WWW::Selenium;
 use Test::More;
 use Catalyst::Utils;
+use Catalyst::EngineLoader;
 
 BEGIN { $ENV{CATALYST_ENGINE} ||= 'HTTP'; }
 
@@ -216,8 +217,16 @@ sub start {
               diag("Catalyst server $$ going down (TERM)") if $DEBUG;
               exit 0;
           };
-          diag("Catalyst server running in $$") if $DEBUG;
-          $app->run($port, 'localhost');
+          diag("Catalyst server running in pid $$ with port $port") if $DEBUG;
+          my $loader = Catalyst::EngineLoader->new(application_name => $app);
+          my $server = $loader->auto(port => $port, host => 'localhost',
+              server_ready => sub {
+                  diag("Server started on port $port") if $DEBUG;
+              },
+          );
+          $app->run($port, 'localhost', $server);
+
+          diag("Process $$ (catalyst server) exiting.") if $DEBUG;
           exit 1;
       }
       $uri = 'http://localhost:' . $port;
@@ -278,8 +287,8 @@ END {
         undef $sel_pid;
 
     } elsif ($www_selenium) {
-        diag("Stopping Selenium Session $sel_pid") if $DEBUG;
-        $www_selenium->stop();
+        # Using external Selenium server - don't shut it down
+        diag("Using external Selenium server. Don't shut it down.") if $DEBUG;
         undef $www_selenium;
     }
 
